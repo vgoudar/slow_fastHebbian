@@ -4,18 +4,20 @@ import numpy as np
 # import math
 import pickle
 import torch
+import sys
 
 from stages import *
 from network import setupTraining, runMiniBatch
 from tasks import *
 
+# helper function
 class Dict2Class(object):
 
     def __init__(self, my_dict):
         for key in my_dict:
             setattr(self, key, my_dict[key])
 
-
+# restore model from checkpoint
 def restoreModel(PATH, model, optimizer):
     checkpoint = torch.load(PATH)
 
@@ -60,17 +62,21 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
 
     FLAGS = Dict2Class(config)
 
+    # make checkpoint dir
     if not os.path.isdir(FLAGS.ckpt_dir):
         os.makedirs(FLAGS.ckpt_dir)
 
+    # dump config to file
     with open(os.path.join(FLAGS.ckpt_dir, "%s_conf.pkl" % FLAGS.save_name), 'wb') as f:
         pickle.dump(FLAGS, f)
         pickle.dump(stages, f)
 
+    # initialze network state, fast network weights and metric variables
     initStates0 = np.zeros([FLAGS.batch_size, config['saveLag'], FLAGS.num_hidden_hpc_units], dtype=np.float32)
     consecutiveCorrect0 = np.zeros([FLAGS.batch_size, 1], dtype=np.float32)
     A_init0 = np.zeros([FLAGS.batch_size, FLAGS.num_hidden_hpc_units, FLAGS.num_hidden_hpc_units], dtype=np.float32)
 
+    # setup / load network
     model, lClass, optimizer = setupTraining(FLAGS)
     perfA = dict()
     if restore:
@@ -114,6 +120,7 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
         REWA = None
         CRA = None
 
+    # performance metrics
     perf = dict()
     perf['loss'] = []
     perf['rewards'] = []
@@ -139,13 +146,19 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
     if restore == False:
         currTrial = -1*(FLAGS.curr_trials_per_loop - FLAGS.curr_ov_per_loop)
 
+    # training loop
     for trial in range(trialInit, FLAGS.training_iters):
         currTrial = currTrial + (FLAGS.curr_trials_per_loop - FLAGS.curr_ov_per_loop)
         changeLR = None
 
+        # reset fast network
         if (currTrial % FLAGS.hpcNetResetLoopCnt) == 0:
             A_init = A_init0
             initStates = initStates0
+            if not hasattr(FLAGS, 'ruleSwitchLoopCnt'):
+                consecutiveCorrect = consecutiveCorrect0
+
+            # checkpoint and switch to next stage
             if trial >= stages[stageid]['switchToNextAt']:  # 10000
                 stageid = stageid + 1
                 changeLR = stages[stageid]['lrFactor']
@@ -181,7 +194,7 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
         stimList, targetList, currentRule, lossMask = task.generateData(FLAGS, currTrial, currentRule, stages[stageid])
         gdEndTime = time.time()
 
-
+        # train model
         tfStartTime = time.time()
         loss, cost_reg, accuracy, rewards, A_init, initStates, consecutiveCorrect, dec, e_bias, savedData = \
             runMiniBatch(model, stimList, targetList,
@@ -223,10 +236,7 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
                 else:
                     CRA = np.concatenate((CRA, currentRule), axis=1)
 
-        perf['loss'] = []
-        perf['rewards'] = []
-        perf['accuracy'] = []
-
+        # update metrics
         perf['loss'] .append(loss)
         perf['rewards'].append(np.mean(rewards))
         perf['accuracy'].append(accuracy)
@@ -246,6 +256,7 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
         #if math.isnan(loss):
         #    exit()
 
+        # checkpoint model
         if (trial % FLAGS.save_every == 0) and \
                 (trial > 0):
             PATH = os.path.join(FLAGS.ckpt_dir, "%s_%d_%d_check.pt" % (FLAGS.save_name, global_step, stageid))
@@ -265,5 +276,8 @@ def train(seed = 0, chlModInhOff=0.3, hpcEncLag=1, restore = False, task='WCST')
 
 
 if __name__ == '__main__':
-    train(seed = 3, chlModInhOff=0.3, hpcEncLag=1)
+    seed = int(sys.argv[1])
+    # chlModInhOff determines baseline inhibition for plasticity gate in fast net
+    # hpcEncLag determines lag for hebbian weight update in fast net
+    train(seed = seed, chlModInhOff=0.2, hpcEncLag=1, task='WCST')
 

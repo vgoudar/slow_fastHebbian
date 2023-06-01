@@ -1,9 +1,9 @@
 import numpy as np
-
+# Curriculum training (e.g. # rules in WCST analog)
 class trainingCurriculum():
     def getWCSTStages(self):
         stages = []
-        stages.append({'switchToNextAt': 2000, #8000,
+        stages.append({'switchToNextAt': 3000, #8000,
                        'numFeatures': 2,
                        'numFeatureVals': 2,
                        'numObjects': 2,
@@ -14,7 +14,7 @@ class trainingCurriculum():
                        'trials_per_loop': 10,
                        'ov_per_loop': 5
                        })
-        stages.append({'switchToNextAt': 6000, #16000,
+        stages.append({'switchToNextAt': 8000, #16000,
                        'numFeatures': 2,
                        'numFeatureVals': 2,
                        'numObjects': 2,
@@ -25,7 +25,7 @@ class trainingCurriculum():
                        'trials_per_loop': 15,
                        'ov_per_loop': 8
                        })
-        stages.append({'switchToNextAt': 8500, #24000,
+        stages.append({'switchToNextAt': 11500, #24000,
                        'numFeatures': 2,
                        'numFeatureVals': 2,
                        'numObjects': 2,
@@ -36,7 +36,7 @@ class trainingCurriculum():
                        'trials_per_loop': 25,
                        'ov_per_loop': 13
                        })
-        stages.append({'switchToNextAt': 33000, #60000,
+        stages.append({'switchToNextAt': 35000, #60000,
                        'numFeatures': 2,
                        'numFeatureVals': 3,
                        'numObjects': 3,
@@ -47,7 +47,7 @@ class trainingCurriculum():
                        'trials_per_loop': 30,
                        'ov_per_loop': 22
                        })
-        stages.append({'switchToNextAt': 43000, #80000,
+        stages.append({'switchToNextAt': 46000, #80000,
                        'numFeatures': 2,
                        'numFeatureVals': 3,
                        'numObjects': 3,
@@ -96,7 +96,7 @@ class trainingCurriculum():
 
     def getNBackStages(self):
         stages = []
-        stages.append({'switchToNextAt': np.inf, #8000,
+        stages.append({'switchToNextAt': np.inf, # no curriculum, single stage
                        'lrFactor': 1,
                        'hpcNetResetLoopCnt': 2,
                        'trials_per_loop': 2,
